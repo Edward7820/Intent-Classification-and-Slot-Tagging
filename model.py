@@ -23,7 +23,7 @@ class SeqClassifier(torch.nn.Module):
         self.num_class=num_class
         self.rnn=torch.nn.RNN(input_size=embeddings.size()[1],hidden_size=hidden_size,
         num_layers=num_layers,nonlinearity='tanh',dropout=dropout,
-        bidirectional=bidirectional)
+        bidirectional=bidirectional,batch_first=True)
         self.output_layer=torch.nn.Linear(in_features=hidden_size,out_features=num_class)
 
     @property
@@ -31,7 +31,16 @@ class SeqClassifier(torch.nn.Module):
         return self.num_class
 
     def forward(self, batch) -> Dict[str, torch.Tensor]:
-        batch_size=batch.size()
+        batch_inputs = self.embed(batch["text"])
+        batch_size = (batch["text"]).size()[0]
+        D=1
+        if self.bidirectional:
+            D=2
+        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size)
+        _, h_n = self.rnn(batch_inputs, h_0)
+        # h_n shape: (D*num_layers, batch_size, hidden_size)
+        outputs = self.output_layer(h_n)
+        # output shape: (D*num_layers, batch_size, num_class)
 
 
 class SeqTagger(SeqClassifier):
