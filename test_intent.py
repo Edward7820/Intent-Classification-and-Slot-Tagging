@@ -2,13 +2,14 @@ import json
 import pickle
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 import torch
 
 from dataset import SeqClsDataset
 from model import SeqClassifier
 from utils import Vocab
+import csv
 
 
 def main(args):
@@ -22,6 +23,11 @@ def main(args):
     dataset = SeqClsDataset(data, vocab, intent2idx, args.max_len)
     # TODO: crecate DataLoader for test dataset
 
+    def collate_fn(samples: List[Dict]) -> Dict:
+        return dataset.collate_fn(samples)
+    dataloader = DataLoader(dataset,batch_size=args.batch_size,
+    collate_fn=collate_fn, pin_memory=True)
+
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
 
     model = SeqClassifier(
@@ -31,16 +37,24 @@ def main(args):
         args.dropout,
         args.bidirectional,
         dataset.num_classes,
+        args.device,
     )
-    model.eval()
-
     ckpt = torch.load(args.ckpt_path)
+    model.load_sate_dict(ckpt)
+    model.eval()
     # load weights into model
 
     # TODO: predict dataset
+    prediction = dict()
+    for test_batch in dataloader:
+        test_batch['text']=test_batch['text'].to(args.device)
+        output = (model(test_batch['text']))['prediction']
+        test_batch_size = test_batch['text'].size()[0]
+        for i in range(test_batch_size):
+            prediction[test_batch['id'][i]]=torch.argmax(output[i])
 
     # TODO: write prediction to file (args.pred_file)
-
+    with open(args.pred_file)
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()

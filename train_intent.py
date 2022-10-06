@@ -61,39 +61,64 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+    best_accuracy = 2400/3000
+    best_loss = 1.5
+    model_path = args.ckpt_dir / "model.pth"
     epoch_pbar = trange(args.num_epoch, desc="Epoch")
     for epoch in epoch_pbar:
         # TODO: Training loop - iterate over train dataloader and update model weights
         # TODO: Evaluation loop - calculate accuracy and save model weights
+        loss_sum=0
+        train_batch_num=0
         for batch_num, train_data in enumerate(dataloaders[TRAIN]):
+            model.train()
+            train_batch_num+=1
             train_data['text']=train_data['text'].to(device)
             train_data['intent']=train_data['intent'].to(device)
             output = (model(train_data['text']))['prediction']
             loss = criterion(output, train_data['intent'])
+            loss_sum+=loss.item()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             # print('    Batch: {}/117.............'.format(batch_num), end=' ')
             # print("    Loss: {:.4f}".format(loss.item()))
-        
-        eval_data = next(iter(dataloaders[DEV]))
-        eval_data['text']=eval_data['text'].to(device)
-        eval_data['intent']=eval_data['intent'].to(device)
-        output = (model(eval_data['text']))['prediction']
-        loss = criterion(output, eval_data['intent'])
-        print(output[0])
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
-        print("Loss: {:.5f}".format(loss.item()), end=' ')
-        eval_batch_size = eval_data['intent'].size()[0]
-        accuracy=0
-        for i in range(eval_batch_size):
-            if torch.argmax(output[i])==eval_data['intent'][i]:
-                accuracy+=1
-        print("Accuracy: {}/{}".format(accuracy,eval_batch_size))
+        print("Train loss: {:.5f}".format(loss_sum/train_batch_num))
 
-    model_path = args.ckpt_dir / "model.pth"
-    torch.save(model.state_dict(),model_path)
-
+        correct=0
+        eval_data_size=0
+        loss_sum=0
+        eval_batch_num=len(dataloaders[DEV])
+        for batch_num, eval_data in enumerate(dataloaders[DEV]):
+            model.eval()
+            eval_data['text']=eval_data['text'].to(device)
+            eval_data['intent']=eval_data['intent'].to(device)
+            output = (model(eval_data['text']))['prediction']
+            loss = criterion(output, eval_data['intent'])
+            eval_batch_size = eval_data['intent'].size()[0]
+            eval_data_size += eval_batch_size
+            loss_sum += loss.item()
+            for i in range(eval_batch_size):
+                if torch.argmax(output[i])==eval_data['intent'][i]:
+                    correct+=1
+        # print(output[0])
+        accuracy = correct/eval_data_size
+        eval_loss=loss_sum/eval_batch_num
+        if (eval_loss < best_loss):
+            best_loss = eval_loss
+            if accuracy >= 0.84:
+                torch.save(model.state_dict(),model_path)
+                print("model is saved")
+        if (accuracy > best_accuracy):
+            best_accuracy = accuracy
+            # torch.save(model.state_dict(),model_path)
+            # print("model is saved")
+        print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
+        print("Loss: {:.5f}".format(eval_loss), end=' ')
+        print("Accuracy: {}/{}".format(correct,eval_data_size))
+        if epoch%10==0 and epoch!=0:
+            print("Max accuracy: {:.5f} Min loss: {:.5f}".format(best_accuracy,best_loss))
     # TODO: Inference on test set
 
 
@@ -119,7 +144,7 @@ def parse_args() -> Namespace:
     )
 
     # data
-    parser.add_argument("--max_len", type=int, default=128)
+    parser.add_argument("--max_len", type=int, default=8)
 
     # model
     parser.add_argument("--hidden_size", type=int, default=512)
@@ -147,3 +172,39 @@ if __name__ == "__main__":
     args = parse_args()
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
     main(args)
+
+# dropout: 0.2 
+# maxlen: 9
+# bidirectional: true
+# lr: 0.0005
+# max accuracy: 0.84967 # loss: 0.77903
+# dropout: 0.2 
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0005
+# Max accuracy: 0.85000 Min loss: 0.73463
+# dropout: 0.2 
+# maxlen: 11
+# bidirectional: true
+# lr: 0.0005
+# Max accuracy: 0.84100 Min loss: 0.88507
+
+# dropout: 0.3
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0005
+# Max accuracy: 0.84833 Min loss: 0.75750
+
+# dropout: 0.25
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0005
+# Max accuracy: 0.84667 Min loss: 0.78992
+
+# dropout: 0.2
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0003
+# Max accuracy: 0.87333 Min loss: 0.70193
+
+# python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --lr=0.0003 --num_epoch=200

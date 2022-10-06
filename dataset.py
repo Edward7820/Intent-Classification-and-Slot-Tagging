@@ -34,8 +34,10 @@ class SeqClsDataset(Dataset):
         # TODO: implement collate_fn
         batch_data = dict()
         inputs_text=[(sample['text'].split(' ')) for sample in samples]
+        batch_data['id']=[sample['id'] for sample in samples]
         batch_data['text']=torch.tensor(self.vocab.encode_batch(inputs_text,to_len=self.max_len))
-        batch_data['intent']=torch.tensor([self.label_mapping[sample['intent']] for sample in samples])
+        if 'intent' in samples[0].keys():
+            batch_data['intent']=torch.tensor([self.label_mapping[sample['intent']] for sample in samples])
         return batch_data
 
     def label2idx(self, label: str):
