@@ -30,7 +30,7 @@ class SeqClassifier(torch.nn.Module):
             self.output_layer=torch.nn.Linear(in_features=2*hidden_size,out_features=num_class)
         else:
             self.output_layer=torch.nn.Linear(in_features=hidden_size,out_features=num_class)
-        self.normalize=torch.nn.Softmax(dim=1)
+        # self.normalize=torch.nn.Softmax(dim=1)
 
     @property
     def encoder_output_size(self) -> int:
@@ -43,10 +43,11 @@ class SeqClassifier(torch.nn.Module):
         D=1
         if self.bidirectional:
             D=2
-        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,device = self.device)
+        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
+        device = self.device, requires_grad=True)
         out, _ = self.rnn(batch_inputs, h_0)
         outputs = self.output_layer(out[:,seq_len-1,:])
-        outputs = self.normalize(outputs)
+        # outputs = self.normalize(outputs)
         # outputs shape: batch_size * num_class
         outputs_dict = {"prediction": outputs}
         return outputs_dict

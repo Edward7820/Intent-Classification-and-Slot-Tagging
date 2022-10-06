@@ -39,7 +39,8 @@ def main(args):
     collate_fns[TRAIN]=collate_fn1
     collate_fns[DEV]=collate_fn2
     dataloaders: Dict[str, DataLoader] = {
-        split: DataLoader(datasets[split],batch_size=args.batch_size, collate_fn=collate_fns[split], shuffle=True, pin_memory=True)
+        split: DataLoader(datasets[split],batch_size=args.batch_size, 
+        collate_fn=collate_fns[split], shuffle=True, pin_memory=True)
         for split in SPLITS
     }
 
@@ -64,23 +65,31 @@ def main(args):
     for epoch in epoch_pbar:
         # TODO: Training loop - iterate over train dataloader and update model weights
         # TODO: Evaluation loop - calculate accuracy and save model weights
-        train_data = next(iter(dataloaders[TRAIN]))
-        train_data['text']=train_data['text'].to(device)
-        train_data['intent']=train_data['intent'].to(device)
-        # if (epoch % 10 == 0):
-        #    print(train_data['text'])
-        optimizer.zero_grad()
-        output = (model(train_data['text']))['prediction']
-        loss = criterion(output, train_data['intent'])
-        loss.backward()
-        optimizer.step()
-        eval_data=next(iter(dataloaders[DEV]))
+        for batch_num, train_data in enumerate(dataloaders[TRAIN]):
+            train_data['text']=train_data['text'].to(device)
+            train_data['intent']=train_data['intent'].to(device)
+            output = (model(train_data['text']))['prediction']
+            loss = criterion(output, train_data['intent'])
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            # print('    Batch: {}/117.............'.format(batch_num), end=' ')
+            # print("    Loss: {:.4f}".format(loss.item()))
+        
+        eval_data = next(iter(dataloaders[DEV]))
         eval_data['text']=eval_data['text'].to(device)
         eval_data['intent']=eval_data['intent'].to(device)
         output = (model(eval_data['text']))['prediction']
         loss = criterion(output, eval_data['intent'])
+        print(output[0])
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
-        print("Loss: {:.4f}".format(loss.item()))
+        print("Loss: {:.5f}".format(loss.item()), end=' ')
+        eval_batch_size = eval_data['intent'].size()[0]
+        accuracy=0
+        for i in range(eval_batch_size):
+            if torch.argmax(output[i])==eval_data['intent'][i]:
+                accuracy+=1
+        print("Accuracy: {}/{}".format(accuracy,eval_batch_size))
 
     model_path = args.ckpt_dir / "model.pth"
     torch.save(model.state_dict(),model_path)
