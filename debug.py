@@ -25,7 +25,16 @@ def collate_fn(samples: List[Dict]) -> Dict:
     batch_data['text']=torch.tensor(dataset.vocab.encode_batch(inputs_text,to_len=dataset.max_len))
     batch_data['intent']=torch.tensor([dataset.label_mapping[sample['intent']] for sample in samples])
     return batch_data
-loader = DataLoader(dataset,batch_size=2,collate_fn=collate_fn)
-for i, batch in enumerate(loader):
-    print(i)
+loader = DataLoader(dataset,batch_size=2,collate_fn=collate_fn,shuffle=True)
+embeddings = torch.load("cache/intent/embeddings.pt")
+for epoch in range(5):
+    batch = next(iter(loader))
     print(batch)
+
+is_cuda = torch.cuda.is_available()
+if (is_cuda==0):
+    device = torch.device("cpu")
+    print("cuda not available")
+else:
+    device = torch.device("cuda")
+    print("cuda is used")

@@ -38,7 +38,7 @@ def main(args):
     collate_fns[TRAIN]=collate_fn1
     collate_fns[DEV]=collate_fn2
     dataloaders: Dict[str, DataLoader] = {
-        split: DataLoader(datasets[split],batch_size=args.batch_size, collate_fn=collate_fns[split], pin_memory=True)
+        split: DataLoader(datasets[split],batch_size=args.batch_size, collate_fn=collate_fns[split], shuffle=True, pin_memory=True)
         for split in SPLITS
     }
 
@@ -63,9 +63,17 @@ def main(args):
     for epoch in epoch_pbar:
         # TODO: Training loop - iterate over train dataloader and update model weights
         # TODO: Evaluation loop - calculate accuracy and save model weights
-        for i, (inputs, labels) in enumerate(dataloaders[TRAIN]):
-
-        
+        train_data = next(iter(dataloaders[TRAIN]))
+        optimizer.zero_grad()
+        output = (model(train_data['text']))['prediction']
+        loss = criterion(output, train_data['intent'])
+        loss.backward()
+        optimizer.step()
+        eval_data=next(iter(dataloaders[DEV]))
+        output = (model(eval_data['text']))['prediction']
+        loss = criterion(output, eval_data['intent'])
+        print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
+        print("Loss: {:.4f}".format(loss.item()))
 
     # TODO: Inference on test set
 
