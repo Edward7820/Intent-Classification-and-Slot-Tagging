@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import torch
+from torch.utils.data import DataLoader
 
 from dataset import SeqClsDataset
 from model import SeqClassifier
@@ -26,7 +27,7 @@ def main(args):
     def collate_fn(samples: List[Dict]) -> Dict:
         return dataset.collate_fn(samples)
     dataloader = DataLoader(dataset,batch_size=args.batch_size,
-    collate_fn=collate_fn, pin_memory=True)
+    collate_fn=collate_fn, pin_memory=True, shuffle=False)
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
 
@@ -39,22 +40,29 @@ def main(args):
         dataset.num_classes,
         args.device,
     )
+    model = model.to(args.device)
     ckpt = torch.load(args.ckpt_path)
-    model.load_sate_dict(ckpt)
+    model.load_state_dict(ckpt)
     model.eval()
     # load weights into model
 
     # TODO: predict dataset
-    prediction = dict()
+    prediction = list()
+    prediction.append(['id','intent'])
     for test_batch in dataloader:
-        test_batch['text']=test_batch['text'].to(args.device)
+        test_batch['text'] = test_batch['text'].to(args.device)
         output = (model(test_batch['text']))['prediction']
+        # print(output)
         test_batch_size = test_batch['text'].size()[0]
         for i in range(test_batch_size):
-            prediction[test_batch['id'][i]]=torch.argmax(output[i])
+            # print(torch.argmax(output[i]).item())
+            pred_class = dataset.idx2label(torch.argmax(output[i]).item())
+            prediction.append([test_batch['id'][i],pred_class])
 
     # TODO: write prediction to file (args.pred_file)
-    with open(args.pred_file)
+    with open(args.pred_file,'w',newline='') as csvfile:
+        writer=csv.writer(csvfile)
+        writer.writerows(prediction)
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()

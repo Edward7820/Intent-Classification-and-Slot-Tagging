@@ -100,27 +100,23 @@ def main(args):
             eval_data_size += eval_batch_size
             loss_sum += loss.item()
             for i in range(eval_batch_size):
-                if torch.argmax(output[i])==eval_data['intent'][i]:
+                if torch.argmax(output[i]).item()==eval_data['intent'][i].item():
                     correct+=1
         # print(output[0])
         accuracy = correct/eval_data_size
         eval_loss=loss_sum/eval_batch_num
         if (eval_loss < best_loss):
             best_loss = eval_loss
-            if accuracy >= 0.84:
-                torch.save(model.state_dict(),model_path)
-                print("model is saved")
         if (accuracy > best_accuracy):
             best_accuracy = accuracy
-            # torch.save(model.state_dict(),model_path)
-            # print("model is saved")
+            torch.save(model.state_dict(),model_path)
+            print("model is saved")
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
         print("Loss: {:.5f}".format(eval_loss), end=' ')
         print("Accuracy: {}/{}".format(correct,eval_data_size))
         if epoch%10==0 and epoch!=0:
             print("Max accuracy: {:.5f} Min loss: {:.5f}".format(best_accuracy,best_loss))
     # TODO: Inference on test set
-
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
@@ -206,5 +202,6 @@ if __name__ == "__main__":
 # bidirectional: true
 # lr: 0.0003
 # Max accuracy: 0.87333 Min loss: 0.70193
+# Max accuracy: 0.86933 Min loss: 0.72620
 
-# python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --lr=0.0003 --num_epoch=200
+# python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --lr=0.0003 --num_epoch=180

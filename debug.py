@@ -28,8 +28,9 @@ def collate_fn(samples: List[Dict]) -> Dict:
 loader = DataLoader(dataset,batch_size=2,collate_fn=collate_fn,shuffle=True)
 embeddings = torch.load("cache/intent/embeddings.pt")
 for epoch in range(5):
-    batch = next(iter(loader))
-    print(batch)
+    print(epoch)
+    for batch in loader:
+        print(batch)
 
 is_cuda = torch.cuda.is_available()
 if (is_cuda==0):
