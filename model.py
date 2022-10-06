@@ -13,8 +13,10 @@ class SeqClassifier(torch.nn.Module):
         dropout: float,
         bidirectional: bool,
         num_class: int,
+        device: torch.device
     ) -> None:
         super(SeqClassifier, self).__init__()
+        self.device = device
         self.embed = Embedding.from_pretrained(embeddings, freeze=False)
         self.hidden_size=hidden_size
         self.num_layers=num_layers
@@ -28,21 +30,23 @@ class SeqClassifier(torch.nn.Module):
             self.output_layer=torch.nn.Linear(in_features=2*hidden_size,out_features=num_class)
         else:
             self.output_layer=torch.nn.Linear(in_features=hidden_size,out_features=num_class)
+        self.normalize=torch.nn.Softmax(dim=1)
 
     @property
     def encoder_output_size(self) -> int:
         return self.num_class
 
     def forward(self, batch) -> Dict[str, torch.Tensor]:
-        batch_inputs = self.embed(batch["text"])
-        batch_size = (batch["text"]).size()[0]
-        seq_len = batch['text'].size()[1]
+        batch_inputs = self.embed(batch)
+        batch_size = batch.size()[0]
+        seq_len = batch.size()[1]
         D=1
         if self.bidirectional:
             D=2
-        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size)
+        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,device = self.device)
         out, _ = self.rnn(batch_inputs, h_0)
         outputs = self.output_layer(out[:,seq_len-1,:])
+        outputs = self.normalize(outputs)
         # outputs shape: batch_size * num_class
         outputs_dict = {"prediction": outputs}
         return outputs_dict

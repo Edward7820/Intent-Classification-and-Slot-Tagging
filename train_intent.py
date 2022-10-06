@@ -2,7 +2,7 @@ import json
 import pickle
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 import torch
 from torch.utils.data import DataLoader
@@ -10,6 +10,7 @@ from tqdm import trange
 
 from dataset import SeqClsDataset
 from utils import Vocab
+from model import SeqClassifier
 
 TRAIN = "train"
 DEV = "eval"
@@ -45,35 +46,44 @@ def main(args):
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
     # TODO: init model and move model to target device(cpu / gpu)
     is_cuda = torch.cuda.is_available()
-    if (is_cuda==0):
+    device = torch.device(args.device)
+    if (device != torch.device("cpu") and is_cuda==0):
         device = torch.device("cpu")
         print("cuda not available")
-    else:
-        device = torch.device(args.device)
-    model = Model(embeddings=embeddings,hidden_size=args.hidden_size,
-    num_layers=args.num_layers,dropout=args.dropout,bidirectional=args.bidirectional,
-    num_class=datasets[TRAIN].num_classes())
-    model.to(device)
+    model = SeqClassifier(embeddings=embeddings,hidden_size=args.hidden_size, 
+    num_layers=args.num_layers,dropout=args.dropout,
+    bidirectional=args.bidirectional, num_class=datasets[TRAIN].num_classes,
+    device=device)
+    model = model.to(device)
 
     # TODO: init optimizer
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters,lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     epoch_pbar = trange(args.num_epoch, desc="Epoch")
     for epoch in epoch_pbar:
         # TODO: Training loop - iterate over train dataloader and update model weights
         # TODO: Evaluation loop - calculate accuracy and save model weights
         train_data = next(iter(dataloaders[TRAIN]))
+        train_data['text']=train_data['text'].to(device)
+        train_data['intent']=train_data['intent'].to(device)
+        # if (epoch % 10 == 0):
+        #    print(train_data['text'])
         optimizer.zero_grad()
         output = (model(train_data['text']))['prediction']
         loss = criterion(output, train_data['intent'])
         loss.backward()
         optimizer.step()
         eval_data=next(iter(dataloaders[DEV]))
+        eval_data['text']=eval_data['text'].to(device)
+        eval_data['intent']=eval_data['intent'].to(device)
         output = (model(eval_data['text']))['prediction']
         loss = criterion(output, eval_data['intent'])
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
         print("Loss: {:.4f}".format(loss.item()))
+
+    model_path = args.ckpt_dir / "model.pth"
+    torch.save(model.state_dict(),model_path)
 
     # TODO: Inference on test set
 
