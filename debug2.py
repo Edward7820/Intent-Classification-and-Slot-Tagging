@@ -21,3 +21,5 @@ label_mapping["B-date"]=3
 max_len=10
 dataset=SeqTaggingClsDataset(data, vocab, label_mapping, max_len)
 print(dataset.collate_fn(data[0:2]))
+token_nums = dataset.token_nums
+print(token_nums)

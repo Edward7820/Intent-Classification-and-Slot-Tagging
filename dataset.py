@@ -53,6 +53,13 @@ class SeqTaggingClsDataset(SeqClsDataset):
     def ignore_idx(self) -> int:
         return -100
 
+    @property
+    def token_nums(self) -> dict:
+        id2nums = dict()
+        for instance in self.data:
+            id2nums[instance['id']] = len(instance['tokens'])
+        return id2nums
+
     def collate_fn(self, samples):
         batch_data = dict()
         batch_data['id']=[sample['id'] for sample in samples]
@@ -68,26 +75,3 @@ class SeqTaggingClsDataset(SeqClsDataset):
                 # print(inputs_tag)
             batch_data['tags']=torch.tensor(inputs_tag)
         return batch_data
-
-'''
-For debug:
-from typing import Dict, List
-import torch
-from dataset import SeqClsDataset
-import pickle
-from utils import Vocab
-
-data=list()
-data.append({"text": "how long should i cook steak for","intent": "cook_time","id": "eval-0"})
-data.append({"text": "please tell me how much money i have in my bank accounts","intent": "balance","id": "eval-1"})
-data.append({"text": "what is the gas level in my gas tank","intent": "gas","id": "eval-2"})
-with open("cache/intent/vocab.pkl", "rb") as f:
-    vocab: Vocab = pickle.load(f)
-label_mapping = dict()
-label_mapping["cook_time"]=0
-label_mapping["balance"]=1
-label_mapping["gas"]=2
-max_len=10
-dataset=SeqClsDataset(data, vocab, label_mapping, max_len)
-print(dataset.collate_fn(data[0:3]))
-'''

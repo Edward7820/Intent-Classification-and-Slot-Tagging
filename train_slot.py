@@ -34,7 +34,7 @@ def main(args):
         return datasets[TRAIN].collate_fn(samples)
     def collate_fn2(samples: List[Dict]) -> Dict:
         return datasets[DEV].collate_fn(samples)
-    collate_fns=[TRAIN: collate_fn1, DEV: collate_fn2]
+    collate_fns={TRAIN: collate_fn1, DEV: collate_fn2}
     dataloaders: Dict[str, DataLoader] = {
         split: DataLoader(datasets[split],batch_size=args.batch_size, 
         collate_fn=collate_fns[split], shuffle=True, pin_memory=True)
@@ -49,11 +49,12 @@ def main(args):
     device=device)
     model = model.to(device)
 
-    criterion = torch.nn.CrossEntropyLoss(size_average = True, ignore_index = datasets[TRAIN].ignore_idx)
+    print(datasets[TRAIN].ignore_idx)
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = datasets[TRAIN].ignore_idx)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     best_accuracy = 0
-    best_loss = 1.5
+    best_loss = 10000
     model_path = args.ckpt_dir / "model.pth"
     epoch_pbar = trange(args.num_epoch, desc="Epoch")
     for epoch in epoch_pbar:
@@ -66,7 +67,7 @@ def main(args):
             train_data['tokens']=train_data['tokens'].to(device)
             train_data['tags']=train_data['tags'].to(device)
             output = (model(train_data['tokens']))['prediction']
-            output = output.transpose(output, 1, 2)
+            output = output.transpose(1, 2)
             loss = criterion(output, train_data['tags'])
             loss_sum += loss.item()
             optimizer.zero_grad()
@@ -82,12 +83,13 @@ def main(args):
         eval_data_size=0
         loss_sum=0
         eval_batch_num=len(dataloaders[DEV])
+        token_nums = datasets[DEV].token_nums
         for eval_data in dataloaders[DEV]:
             model.eval()
             eval_data['tokens']=eval_data['tokens'].to(device)
             eval_data['tags']=eval_data['tags'].to(device)
             output = (model(eval_data['tokens']))['prediction']
-            output = output.transpose(output, 1, 2)
+            output = output.transpose(1, 2)
             # output shape: batch_size * num_classes * max_len
             loss = criterion(output, eval_data['tags'])
             eval_batch_size = output.size()[0]
@@ -95,10 +97,15 @@ def main(args):
             eval_data_size += eval_batch_size
             loss_sum += loss.item()
             all_correct = True
+            # print(output.size())
             for i in range(eval_batch_size):
+                if token_nums[eval_data['id'][i]] > seq_num:
+                    continue
                 for j in range(seq_num):
-                    if eval_data['tags'][i][j]!=datasets[DEV].ignore_idx and \
-                    torch.argmax(output[i][:][j]).item()!=eval_data['tags'][i][j].item():
+                    if eval_data['tags'][i][j].item()!=datasets[DEV].ignore_idx and \
+                    torch.argmax(output[i,:,j]).item()!=eval_data['tags'][i][j].item():
+                        # if epoch%10==3:
+                        #    print(j, torch.argmax(output[i][:][j]).item(), eval_data['tags'][i][j].item())
                         all_correct = False
                         break
                 if all_correct:
@@ -169,3 +176,5 @@ if __name__ == "__main__":
     args = parse_args()
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
     main(args)
+
+# python3 train_slot.py --device=cuda --max_len=16 --num_epoch=200  
