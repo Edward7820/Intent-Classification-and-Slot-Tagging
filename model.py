@@ -23,13 +23,13 @@ class SeqClassifier(torch.nn.Module):
         self.dropout=dropout
         self.bidirectional=bidirectional
         self.num_class=num_class
-        self.rnn=torch.nn.RNN(input_size=embeddings.size()[1],hidden_size=hidden_size,
-        num_layers=num_layers,nonlinearity='tanh',dropout=dropout,
+        self.gru=torch.nn.GRU(input_size=embeddings.size()[1],hidden_size=hidden_size,
+        num_layers=num_layers,dropout=dropout,
         bidirectional=bidirectional,batch_first=True)
         if self.bidirectional:
-            self.output_layer=torch.nn.Linear(in_features=2*hidden_size,out_features=num_class)
+            self.output_layer = torch.nn.Linear(in_features=2*hidden_size,out_features=num_class)
         else:
-            self.output_layer=torch.nn.Linear(in_features=hidden_size,out_features=num_class)
+            self.output_layer = torch.nn.Linear(in_features=hidden_size,out_features=num_class)
         # self.normalize=torch.nn.Softmax(dim=1)
 
     @property
@@ -45,7 +45,7 @@ class SeqClassifier(torch.nn.Module):
             D=2
         h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
         device = self.device, requires_grad=True)
-        out, _ = self.rnn(batch_inputs, h_0)
+        out, _ = self.gru(batch_inputs, h_0)
         outputs = self.output_layer(out[:,seq_len-1,:])
         # outputs = self.normalize(outputs)
         # outputs shape: batch_size * num_class
@@ -54,5 +54,16 @@ class SeqClassifier(torch.nn.Module):
 
 class SeqTagger(SeqClassifier):
     def forward(self, batch) -> Dict[str, torch.Tensor]:
-        # TODO: implement model forward
-        raise NotImplementedError
+        batch_inputs = self.embed(batch)
+        batch_size = batch.size()[0]
+        seq_len = batch.size()[1]
+        D=1
+        if self.bidirectional:
+            D=2
+        h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
+        device = self.device, requires_grad=True)
+        out, _ = self.gru(batch_inputs, h_0)
+        outputs = self.outputlayer(out)
+        # outputs shape: batch_size * seq_len * num_class
+        outputs_dict = {"prediction": outputs}
+        return outputs_dict

@@ -46,11 +46,8 @@ def main(args):
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
     # TODO: init model and move model to target device(cpu / gpu)
-    is_cuda = torch.cuda.is_available()
+    # is_cuda = torch.cuda.is_available()
     device = torch.device(args.device)
-    if (device != torch.device("cpu") and is_cuda==0):
-        device = torch.device("cpu")
-        print("cuda not available")
     model = SeqClassifier(embeddings=embeddings,hidden_size=args.hidden_size, 
     num_layers=args.num_layers,dropout=args.dropout,
     bidirectional=args.bidirectional, num_class=datasets[TRAIN].num_classes,
@@ -61,7 +58,7 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    best_accuracy = 2400/3000
+    best_accuracy = 0
     best_loss = 1.5
     model_path = args.ckpt_dir / "model.pth"
     epoch_pbar = trange(args.num_epoch, desc="Epoch")
@@ -109,12 +106,13 @@ def main(args):
             best_loss = eval_loss
         if (accuracy > best_accuracy):
             best_accuracy = accuracy
-            torch.save(model.state_dict(),model_path)
-            print("model is saved")
+            if accuracy >= 0.88:
+                torch.save(model.state_dict(),model_path)
+                print("model is saved")
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
         print("Loss: {:.5f}".format(eval_loss), end=' ')
         print("Accuracy: {}/{}".format(correct,eval_data_size))
-        if epoch%10==0 and epoch!=0:
+        if epoch%10==9:
             print("Max accuracy: {:.5f} Min loss: {:.5f}".format(best_accuracy,best_loss))
     # TODO: Inference on test set
 
@@ -204,4 +202,37 @@ if __name__ == "__main__":
 # Max accuracy: 0.87333 Min loss: 0.70193
 # Max accuracy: 0.86933 Min loss: 0.72620
 
-# python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --lr=0.0003 --num_epoch=180
+# dropout: 0.2
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0004
+# batch_size = 256
+# Max accuracy: 0.86767 Min loss: 0.73695
+
+# dropout: 0.2
+# maxlen: 10
+# bidirectional: true
+# lr: 0.0005
+# batch_size = 256
+# Max accuracy: 0.86767 Min loss: 0.76488
+
+# GRU
+# dropout: 0.2
+# maxlen: 10
+# lr: 0.001
+# batch_size = 128
+# Max accuracy: 0.90033 Min loss: 0.48817
+
+# dropout: 0.2
+# maxlen: 9
+# lr: 0.001
+# batch_size = 128
+# Max accuracy: 0.88800 Min loss: 0.51945
+
+# dropout: 0.15
+# maxlen: 10
+# lr: 0.0008
+# batch_size = 128
+# bidirectional: True
+# Max accuracy: 0.90067 Min loss: 0.48105 (best model: epoch num = 100)
+# python3 train_intent.py --device=cuda --dropout=0.16 --max_len=10 --lr=0.0008 --num_epoch=100 --batch_size=128 --num_layers=4

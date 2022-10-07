@@ -33,9 +33,10 @@ class SeqClsDataset(Dataset):
     def collate_fn(self, samples: List[Dict]) -> Dict:
         # TODO: implement collate_fn
         batch_data = dict()
-        inputs_text=[(sample['text'].split(' ')) for sample in samples]
         batch_data['id']=[sample['id'] for sample in samples]
-        batch_data['text']=torch.tensor(self.vocab.encode_batch(inputs_text,to_len=self.max_len))
+        if 'text' in samples[0].keys():
+            inputs_text=[(sample['text'].split(' ')) for sample in samples]
+            batch_data['text']=torch.tensor(self.vocab.encode_batch(inputs_text,to_len=self.max_len))
         if 'intent' in samples[0].keys():
             batch_data['intent']=torch.tensor([self.label_mapping[sample['intent']] for sample in samples])
         return batch_data
@@ -48,11 +49,25 @@ class SeqClsDataset(Dataset):
 
 
 class SeqTaggingClsDataset(SeqClsDataset):
-    ignore_idx = -100
+    @property
+    def ignore_idx(self) -> int:
+        return -100
 
     def collate_fn(self, samples):
-        # TODO: implement collate_fn
-        raise NotImplementedError
+        batch_data = dict()
+        batch_data['id']=[sample['id'] for sample in samples]
+        if 'tokens' in samples[0].keys():
+            inputs_token=[sample['tokens'] for sample in samples]
+            batch_data['tokens']=torch.tensor(self.vocab.encode_batch(inputs_token,to_len=self.max_len))
+        if 'tags' in samples[0].keys():
+            inputs_tag = list()
+            for sample in samples:
+                all_tags=[self.label_mapping[tag] for tag in sample['tags']]
+                padded_tags=all_tags[:self.max_len]+[self.ignore_idx]*max(0 , self.max_len - len(all_tags))
+                inputs_tag.append(padded_tags)
+                # print(inputs_tag)
+            batch_data['tags']=torch.tensor(inputs_tag)
+        return batch_data
 
 '''
 For debug:
