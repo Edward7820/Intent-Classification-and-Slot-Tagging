@@ -50,40 +50,63 @@ def main(args):
     model = model.to(device)
 
     print(datasets[TRAIN].ignore_idx)
-    criterion = torch.nn.CrossEntropyLoss(ignore_index = datasets[TRAIN].ignore_idx)
+    criterion = torch.nn.CrossEntropyLoss(ignore_index = datasets[TRAIN].ignore_idx,reduction='mean')
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     best_accuracy = 0
     best_loss = 10000
     model_path = args.ckpt_dir / "model.pth"
+    train_token_nums = datasets[TRAIN].token_nums
+    eval_token_nums = datasets[DEV].token_nums
     epoch_pbar = trange(args.num_epoch, desc="Epoch")
     for epoch in epoch_pbar:
         # Training loop
+        correct = 0
         loss_sum=0
         train_batch_num=0
+        train_data_size = 0
         for train_data in dataloaders[TRAIN]:
             model.train()
-            train_batch_num+=1
             train_data['tokens']=train_data['tokens'].to(device)
             train_data['tags']=train_data['tags'].to(device)
             output = (model(train_data['tokens']))['prediction']
             output = output.transpose(1, 2)
             loss = criterion(output, train_data['tags'])
             loss_sum += loss.item()
+
+            train_batch_num+=1
+            train_batch_size = output.size()[0]
+            train_data_size += train_batch_size
+            seq_num = output.size()[2]
+            for i in range(train_batch_size):
+                if train_token_nums[train_data['id'][i]] > seq_num:
+                    continue
+                all_correct = True
+                for j in range(seq_num):
+                    if train_data['tags'][i][j].item()!=datasets[TRAIN].ignore_idx and \
+                    torch.argmax(output[i,:,j]).item()!=train_data['tags'][i][j].item():
+                        all_correct = False
+                        break
+                if all_correct:
+                    correct += 1
+            
             optimizer.zero_grad()
             loss.backward()
+            if args.do_grad_clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(),args.clip,
+                error_if_nonfinite=True)
             optimizer.step()
             # print('    Batch: {}/117.............'.format(batch_num), end=' ')
             # print("    Loss: {:.4f}".format(loss.item()))
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
-        print("Train loss: {:.5f}".format(loss_sum/train_batch_num))
+        print("Train loss: {:.5f}".format(loss_sum/train_batch_num),end=' ')
+        print("Train accuracy: {}/{}".format(correct,train_data_size))
 
         #evaluation loop
         correct=0
         eval_data_size=0
         loss_sum=0
         eval_batch_num=len(dataloaders[DEV])
-        token_nums = datasets[DEV].token_nums
         for eval_data in dataloaders[DEV]:
             model.eval()
             eval_data['tokens']=eval_data['tokens'].to(device)
@@ -96,14 +119,14 @@ def main(args):
             seq_num = output.size()[2]
             eval_data_size += eval_batch_size
             loss_sum += loss.item()
-            all_correct = True
             # print(output.size())
             for i in range(eval_batch_size):
-                if token_nums[eval_data['id'][i]] > seq_num:
+                if eval_token_nums[eval_data['id'][i]] > seq_num:
                     continue
+                all_correct = True
                 for j in range(seq_num):
-                    if eval_data['tags'][i][j].item()!=datasets[DEV].ignore_idx and \
-                    torch.argmax(output[i,:,j]).item()!=eval_data['tags'][i][j].item():
+                    if eval_data['tags'][i,j].item()!=datasets[DEV].ignore_idx and \
+                    torch.argmax(output[i,:,j]).item()!=eval_data['tags'][i,j].item():
                         # if epoch%10==3:
                         #    print(j, torch.argmax(output[i][:][j]).item(), eval_data['tags'][i][j].item())
                         all_correct = False
@@ -116,7 +139,7 @@ def main(args):
             best_loss = eval_loss
         if (accuracy > best_accuracy):
             best_accuracy = accuracy
-            if accuracy >= 0.72:
+            if accuracy >= 0.03:
                 torch.save(model.state_dict(),model_path)
                 print("model is saved")
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
@@ -158,6 +181,8 @@ def parse_args() -> Namespace:
 
     # optimizer
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--do_grad_clip", type=bool, default=False)
+    parser.add_argument("--clip", type=float, default=1.0)
 
     # data loader
     parser.add_argument("--batch_size", type=int, default=128)
@@ -177,4 +202,4 @@ if __name__ == "__main__":
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
     main(args)
 
-# python3 train_slot.py --device=cuda --max_len=16 --num_epoch=200  
+# python3 train_slot.py --device=cuda --max_len=20

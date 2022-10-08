@@ -54,7 +54,7 @@ def main(args):
         for i in range(test_batch_size):
             pred_tags = ''
             for j in range(args.max_len):
-                if test_batch[i][j]!=dataset.ignore_idx:
+                if test_batch['tokens'][i][j] != vocab.pad_id:
                     if pred_tags != '':
                         pred_tags += ' '
                     pred_tags += dataset.idx2label(torch.argmax(output[i,j]).item())
@@ -67,10 +67,10 @@ def main(args):
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
-        "--data_dir",
+        "--test_file",
         type=Path,
-        help="Directory to the dataset.",
-        default="./data/slot/",
+        help="Path to the test file.",
+        required=True
     )
     parser.add_argument(
         "--cache_dir",
@@ -79,10 +79,10 @@ def parse_args() -> Namespace:
         default="./cache/slot/",
     )
     parser.add_argument(
-        "--ckpt_dir",
+        "--ckpt_path",
         type=Path,
-        help="Directory to save the model file.",
-        default="./ckpt/slot/",
+        help="Path to model checkpoint.",
+        required=True
     )
     parser.add_argument("--pred_file", type=Path, default="pred.slot.csv")
 
