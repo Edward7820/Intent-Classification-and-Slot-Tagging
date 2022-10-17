@@ -12,6 +12,7 @@ from tqdm import tqdm, trange
 # import pandas as pd
 # import numpy as np
 # import matplotlib.pyplot as plt
+from plot_figure import plot_figure
 
 from dataset import SeqTaggingClsDataset
 from model import SeqTagger
@@ -157,13 +158,9 @@ def main(args):
         if epoch%10==9:
             print("Max accuracy: {:.5f} Min loss: {:.5f} Model saved at epoch {}".format(best_accuracy,
             best_loss,model_saved_epoch))
-
-def plot_figure():
-    loss_df = pd.DataFrame(data=loss_data,dtype=float)
-    accuracy_df = pd.DataFrame(data=accuracy_data,dtype=float)
-    loss_df.plot()
-    accuracy_df.plot()
-    plt.show()
+    
+    if args.plot_figure:
+        plot_figure(loss_data, accuracy_data)
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
@@ -209,6 +206,9 @@ def parse_args() -> Namespace:
         "--device", type=torch.device, help="cpu, cuda, cuda:0, cuda:1", default="cpu"
     )
     parser.add_argument("--num_epoch", type=int, default=100)
+
+    # plot figure
+    parser.add_argument("--plot_figure", type=bool, default=False)
 
     args = parser.parse_args()
     return args

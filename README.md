@@ -30,3 +30,8 @@ python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer
 ```shell
 python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer=3 --num_epoch=50 --plot_figure=True
 ```
+
+## Download the Models
+```shell
+bash download.sh
+```

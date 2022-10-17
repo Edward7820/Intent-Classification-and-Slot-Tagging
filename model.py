@@ -23,7 +23,7 @@ class SeqClassifier(torch.nn.Module):
         self.dropout=dropout
         self.bidirectional=bidirectional
         self.num_class=num_class
-        self.gru=torch.nn.GRU(input_size=embeddings.size()[1],hidden_size=hidden_size,
+        self.lstm=torch.nn.LSTM(input_size=embeddings.size()[1],hidden_size=hidden_size,
         num_layers=num_layers,dropout=dropout,
         bidirectional=bidirectional,batch_first=True)
         if self.bidirectional:
@@ -45,9 +45,10 @@ class SeqClassifier(torch.nn.Module):
             D=2
         h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
         device = self.device, requires_grad=True)
-        out, _ = self.gru(batch_inputs, h_0)
+        c_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
+        device = self.device, requires_grad=True)
+        out, _ = self.lstm(batch_inputs, (h_0,c_0))
         outputs = self.output_layer(out[:,seq_len-1,:])
-        # outputs = self.normalize(outputs)
         # outputs shape: batch_size * num_class
         outputs_dict = {"prediction": outputs}
         return outputs_dict
@@ -62,8 +63,10 @@ class SeqTagger(SeqClassifier):
             D=2
         h_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
         device = self.device, requires_grad=True)
-        out, _ = self.gru(batch_inputs, h_0)
-        outputs = self.outputlayer(out)
+        c_0 = torch.zeros(D*self.num_layers,batch_size,self.hidden_size,
+        device = self.device, requires_grad=True)
+        out, _= self.lstm(batch_inputs, (h_0,c_0))
+        outputs = self.output_layer(out)
         # outputs shape: batch_size * seq_len * num_class
         outputs_dict = {"prediction": outputs}
         return outputs_dict
