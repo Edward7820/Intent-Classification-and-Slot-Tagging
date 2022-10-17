@@ -18,5 +18,15 @@ bash preprocess.sh
 
 ## Intent detection
 ```shell
-python train_intent.py
+python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --num_epoch=50 --num_layer=2
+```
+
+## Slot Tagging
+```shell
+python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer=3 --num_epoch=50
+```
+
+## Plot Figures for the Report
+```shell
+python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer=3 --num_epoch=50 --plot_figure=True
 ```
