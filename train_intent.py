@@ -45,8 +45,6 @@ def main(args):
     }
 
     embeddings = torch.load(args.cache_dir / "embeddings.pt")
-    # TODO: init model and move model to target device(cpu / gpu)
-    # is_cuda = torch.cuda.is_available()
     device = torch.device(args.device)
     model = SeqClassifier(embeddings=embeddings,hidden_size=args.hidden_size, 
     num_layers=args.num_layers,dropout=args.dropout,
@@ -54,10 +52,12 @@ def main(args):
     device=device)
     model = model.to(device)
 
-    # TODO: init optimizer
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(model.parameters(),
+    lr = args.lr, weight_decay = args.weight_decay)
 
+    loss_data = {'training loss':list([]), 'evaluation loss': list([])}
+    accuracy_data = {'evaluation accuracy':list([])}
     best_accuracy = 0
     best_loss = 1.5
     model_path = args.ckpt_dir / "model.pth"
@@ -77,11 +77,13 @@ def main(args):
             loss_sum+=loss.item()
             optimizer.zero_grad()
             loss.backward()
+            if args.do_grad_clip:
+                torch.nn.utils.clip_grad_norm_(model.parameters(),args.clip,
+                error_if_nonfinite=True)
             optimizer.step()
-            # print('    Batch: {}/117.............'.format(batch_num), end=' ')
-            # print("    Loss: {:.4f}".format(loss.item()))
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
         print("Train loss: {:.5f}".format(loss_sum/train_batch_num))
+        loss_data['training loss'].append(loss_sum/train_batch_num)
 
         correct=0
         eval_data_size=0
@@ -99,7 +101,6 @@ def main(args):
             for i in range(eval_batch_size):
                 if torch.argmax(output[i]).item()==eval_data['intent'][i].item():
                     correct+=1
-        # print(output[0])
         accuracy = correct/eval_data_size
         eval_loss=loss_sum/eval_batch_num
         if (eval_loss < best_loss):
@@ -114,7 +115,8 @@ def main(args):
         print("Accuracy: {}/{}".format(correct,eval_data_size))
         if epoch%10==9:
             print("Max accuracy: {:.5f} Min loss: {:.5f}".format(best_accuracy,best_loss))
-    # TODO: Inference on test set
+        loss_data['evaluation loss'].append(eval_loss)
+        accuracy_data['evaluation accuracy'].append(accuracy)
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
@@ -148,6 +150,9 @@ def parse_args() -> Namespace:
 
     # optimizer
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--do_grad_clip", type=bool, default=False)
+    parser.add_argument("--clip", type=float, default=1.0)
+    parser.add_argument("--weight_decay",type=float,default=0)
 
     # data loader
     parser.add_argument("--batch_size", type=int, default=128)
@@ -166,73 +171,3 @@ if __name__ == "__main__":
     args = parse_args()
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
     main(args)
-
-# dropout: 0.2 
-# maxlen: 9
-# bidirectional: true
-# lr: 0.0005
-# max accuracy: 0.84967 # loss: 0.77903
-# dropout: 0.2 
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0005
-# Max accuracy: 0.85000 Min loss: 0.73463
-# dropout: 0.2 
-# maxlen: 11
-# bidirectional: true
-# lr: 0.0005
-# Max accuracy: 0.84100 Min loss: 0.88507
-
-# dropout: 0.3
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0005
-# Max accuracy: 0.84833 Min loss: 0.75750
-
-# dropout: 0.25
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0005
-# Max accuracy: 0.84667 Min loss: 0.78992
-
-# dropout: 0.2
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0003
-# Max accuracy: 0.87333 Min loss: 0.70193
-# Max accuracy: 0.86933 Min loss: 0.72620
-
-# dropout: 0.2
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0004
-# batch_size = 256
-# Max accuracy: 0.86767 Min loss: 0.73695
-
-# dropout: 0.2
-# maxlen: 10
-# bidirectional: true
-# lr: 0.0005
-# batch_size = 256
-# Max accuracy: 0.86767 Min loss: 0.76488
-
-# GRU
-# dropout: 0.2
-# maxlen: 10
-# lr: 0.001
-# batch_size = 128
-# Max accuracy: 0.90033 Min loss: 0.48817
-
-# dropout: 0.2
-# maxlen: 9
-# lr: 0.001
-# batch_size = 128
-# Max accuracy: 0.88800 Min loss: 0.51945
-
-# dropout: 0.15
-# maxlen: 10
-# lr: 0.0008
-# batch_size = 128
-# bidirectional: True
-# Max accuracy: 0.90067 Min loss: 0.48105 (best model: epoch num = 100)
-# python3 train_intent.py --device=cuda --dropout=0.16 --max_len=10 --lr=0.0008 --num_epoch=100 --batch_size=128 --num_layers=4

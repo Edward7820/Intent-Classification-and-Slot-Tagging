@@ -9,9 +9,9 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm, trange
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+# import pandas as pd
+# import numpy as np
+# import matplotlib.pyplot as plt
 
 from dataset import SeqTaggingClsDataset
 from model import SeqTagger
@@ -53,11 +53,12 @@ def main(args):
     device=device)
     model = model.to(device)
 
-    # print(datasets[TRAIN].ignore_idx)
     criterion = torch.nn.CrossEntropyLoss(ignore_index = datasets[TRAIN].ignore_idx,reduction='mean')
     optimizer = torch.optim.Adam(model.parameters(), 
     lr = args.lr, weight_decay = args.weight_decay)
 
+    global loss_data
+    global accuracy_data
     loss_data = {'training loss':list([]), 'evaluation loss': list([])}
     accuracy_data = {'training accuracy':([]), 'evaluation accuracy':([])}
     best_accuracy = 0
@@ -104,8 +105,6 @@ def main(args):
                 torch.nn.utils.clip_grad_norm_(model.parameters(),args.clip,
                 error_if_nonfinite=True)
             optimizer.step()
-            # print('    Batch: {}/117.............'.format(batch_num), end=' ')
-            # print("    Loss: {:.4f}".format(loss.item()))
         print('Epoch: {}/{}.............'.format(epoch,args.num_epoch), end=' ')
         print("Train loss: {:.5f}".format(loss_sum/train_batch_num),end=' ')
         print("Train accuracy: {}/{}".format(correct,train_data_size))
@@ -129,7 +128,6 @@ def main(args):
             seq_num = output.size()[2]
             eval_data_size += eval_batch_size
             loss_sum += loss.item()
-            # print(output.size())
             for i in range(eval_batch_size):
                 if eval_token_nums[eval_data['id'][i]] > seq_num:
                     continue
@@ -137,8 +135,6 @@ def main(args):
                 for j in range(seq_num):
                     if eval_data['tags'][i,j].item()!=datasets[DEV].ignore_idx and \
                     torch.argmax(output[i,:,j]).item()!=eval_data['tags'][i,j].item():
-                        # if epoch%10==3:
-                        #    print(j, torch.argmax(output[i][:][j]).item(), eval_data['tags'][i][j].item())
                         all_correct = False
                         break
                 if all_correct:
@@ -161,7 +157,8 @@ def main(args):
         if epoch%10==9:
             print("Max accuracy: {:.5f} Min loss: {:.5f} Model saved at epoch {}".format(best_accuracy,
             best_loss,model_saved_epoch))
-    
+
+def plot_figure():
     loss_df = pd.DataFrame(data=loss_data,dtype=float)
     accuracy_df = pd.DataFrame(data=accuracy_data,dtype=float)
     loss_df.plot()
@@ -221,37 +218,3 @@ if __name__ == "__main__":
     args = parse_args()
     args.ckpt_dir.mkdir(parents=True, exist_ok=True)
     main(args)
-
-# python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5
-# GRU
-# max_len:20 (default setting)
-# Max accuracy: 0.77900 Min loss: 0.12243
-
-# 1
-# max_len: 20
-# dropout: 0.15
-# Max accuracy: 0.77300 Min loss: 0.12226
-
-# 2
-# max_len: 20
-# dropout: 0.1
-# do_grad_clip: True
-
-# 3
-# max_len = 20
-# hidden_size = 600
-# Max accuracy: 0.77500 Min loss: 0.12188
-
-# 4
-# max_len = 20
-# hidden_size = 400
-# Max accuracy: 0.77900 Min loss: 0.12053
-
-# LSTM
-# 5
-# max_len = 20 (default setting)
-# Max accuracy: 0.78500 Min loss: 0.11988
-
-# 6
-# max_len = 20
-# weight decay = 1e-5
