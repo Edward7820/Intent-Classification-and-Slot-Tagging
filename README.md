@@ -16,12 +16,12 @@ pip instsall -r requirements.in
 bash preprocess.sh
 ```
 
-## Training for Intent detection
+## Training for intent detection
 ```shell
 python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --num_epoch=50 --num_layer=2
 ```
 
-## Training for Slot Tagging
+## Training for slot tagging
 ```shell
 python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer=3 --num_epoch=50
 ```
@@ -31,7 +31,7 @@ python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer
 python3 train_slot.py --device=cuda --max_len=20 --weight_decay=1e-5 --num_layer=3 --num_epoch=50 --plot_figure=True
 ```
 
-## Download the Models
+## Download the models
 ```shell
 bash download.sh
 ```
