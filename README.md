@@ -16,6 +16,9 @@ pip instsall -r requirements.in
 bash preprocess.sh
 ```
 
+## Training data format
+https://github.com/ntu-adl-ta/ADL21-HW1/tree/main/data
+
 ## Training for intent detection
 ```shell
 python3 train_intent.py --device=cuda --dropout=0.2 --max_len=10 --num_epoch=50 --num_layer=2
@@ -46,3 +49,6 @@ bash ./slot_tag.sh /path/to/test.json /path/to/pred.csv
 ```shell
 bash seqeval.sh /path/to/test.json
 ```
+
+## Reference
+https://github.com/ntu-adl-ta/ADL21-HW1
